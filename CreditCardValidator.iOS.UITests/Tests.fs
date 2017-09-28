@@ -8,8 +8,8 @@ module DSL =
 
     type UIQuery = private UIQuery of (AppQuery -> AppQuery)
 
-    let runUIQuery = function
-        | UIQuery f -> f
+    let runUIQuery appQuery = function
+        | UIQuery f -> f appQuery
 
     let (==>) q1 q2 =
         match q1, q2 with
@@ -18,10 +18,10 @@ module DSL =
                 f2 ((f1 x))
             )
 
-    let klass name =
+    let Class name =
         UIQuery (fun x -> x.Class name)
 
-    let marked name =
+    let Marked name =
         UIQuery (fun x -> x.Marked name)
 
     type UITest<'T> = private UITest of (IApp -> 'T)
@@ -29,7 +29,7 @@ module DSL =
     let runUITest app = function
         | UITest f -> f app |> ignore
 
-    let waitForElement (q : UIQuery) =
+    let WaitForElement (q : UIQuery) =
         match q with
         | UIQuery f ->
             UITest (fun app -> app.WaitForElement f)
@@ -42,14 +42,14 @@ module DSL =
                 | UITest tf2 -> tf2 app
             )
 
-    let enterText text q =
+    let EnterText text q =
         match q with
         | UIQuery f ->
             UITest (fun app -> 
                 app.EnterText(f, text)
             )
 
-    let tap q =
+    let Tap q =
         match q with
         | UIQuery f ->
             UITest (fun app -> app.Tap f)
@@ -63,21 +63,34 @@ type Tests() =
         let platform = platform
         let app = AppInitializer.startApp (platform)
 
+        let waitForPage =
+            Class "UINavigationBar" ==> Marked "Simple Credit Card Validator"
+            |> WaitForElement
+
+        let enterCC =
+            Class "UITextField"
+            |> EnterText "999999999999999"
+
+        let validateCC =
+            Marked "Validate Credit Card" ==> Class "UIButton"
+            |> Tap
+
+        let waitForError =
+            Marked "Credit card number is too short." ==> Class "UILabel"
+            |> WaitForElement
+
         let test =
-            klass "UINavigationBar"
-            ==> marked "Simple Credit Card Validator"
-            |> waitForElement >>= fun _ ->
+            Class "UINavigationBar" ==> Marked "Simple Credit Card Validator"
+            |> WaitForElement >>= fun _ ->
 
-                klass "UITextField"
-                |> enterText "999999999999999" >>= fun _ ->
+                Class "UITextField"
+                |> EnterText "999999999999999" >>= fun _ ->
 
-                    marked "Validate Credit Card"
-                    ==> klass "UIButton"
-                    |> tap >>= fun _ ->
+                    Marked "Validate Credit Card" ==> Class "UIButton"
+                    |> Tap >>= fun _ ->
 
-                        marked "Credit card number is too short."
-                        ==> klass "UILabel"
-                        |> waitForElement
+                        Marked "Credit card number is too short." ==> Class "UILabel"
+                        |> WaitForElement
 
         runUITest app test
 
